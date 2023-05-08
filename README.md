@@ -12,13 +12,14 @@ To setup the basic website you will need to have the following installed:
 
 Pip is the package manager for Python.  You can install the remaining packages required for this task using pip. You will need to run the following:
 
-- pip install flask flask-sqlalchemy flask-login
+- pip install flask flask-sqlalchemy flask-login waitress
 
 You should have at least the following versions installed: 
 - Python             3.9.6
 - Flask              2.2.3
 - Flask-Login        0.6.2
 - Flask-SQLAlchemy   3.0.3
+- Waitress           2.1.2
 
 You will also need sqlite installed for the database backend.
 
@@ -63,6 +64,7 @@ You can see that the database comes prepopulated with some restaurants and some 
 
 You can run the website by typing:
 
-- python run.py
+- `./run.sh` on Linux and MacOS, or
+- `run.bat` on Windows
 
 You can now browse to the url http://localhost:8000/ to view the website.
