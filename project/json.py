@@ -9,14 +9,14 @@ json = Blueprint('json', __name__)
 #JSON APIs to view Restaurant Information
 @json.route('/restaurant/<restaurant_id>/menu/JSON')
 def restaurantMenuJSON(restaurant_id):
-    items = db.session.execute(text('select * from menu_item where restaurant_id = ' + str(restaurant_id)))
+    items = db.session.execute(text('select * from menu_item where restaurant_id = %s'), (restaurant_id))
     items_list = [ i._asdict() for i in items ]
     return pyjs.dumps(items_list)
 
 
 @json.route('/restaurant/<restaurant_id>/menu/<int:menu_id>/JSON')
 def menuItemJSON(restaurant_id, menu_id):
-    Menu_Item = db.session.execute(text('select * from menu_item where id = ' + str(menu_id) + ' limit 1'))
+    Menu_Item = db.session.execute(text('select * from menu_item where id = %s limit 1'), (str(menu_id)))
     items_list = [ i._asdict() for i in Menu_Item ]
     return pyjs.dumps(items_list)
 
