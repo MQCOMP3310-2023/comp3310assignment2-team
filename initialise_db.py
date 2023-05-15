@@ -207,9 +207,17 @@ def populate_db():
     print("added menu items!")
 
 
+def gen_secret_key():
+    import secrets
+    with open("secret_key", "w") as secret_file:
+        secret_file.write(secrets.token_urlsafe(16))
+
 if __name__ == '__main__':
   app = create_app()
   with app.app_context():
     db.create_all()
     populate_db()
+    gen_secret_key()
+
+
 
