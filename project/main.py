@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, flash, redirect, url_for
-from .models import Restaurant, MenuItem
+from .models import Restaurant, MenuItem, User
 from sqlalchemy import asc
 from . import db
 
@@ -107,3 +107,15 @@ def deleteMenuItem(restaurant_id,menu_id):
         return redirect(url_for('main.showMenu', restaurant_id = restaurant_id))
     else:
         return render_template('deleteMenuItem.html', item = itemToDelete)
+
+@main.route('/login/')
+def showLogin():
+   return render_template("login.html")
+
+@main.route('/signup/')
+def showSignup():
+   return render_template("signup.html")
+
+@main.route('/logout/')
+def signOut():
+   return render_template("logout.html")

@@ -32,3 +32,15 @@ class MenuItem(db.Model):
            'course'     : self.course,
        }
 
+class User():
+    name = "user"
+    email = "user@example.com"
+    password = "password"
+
+    @property
+    def serialize(self):
+        """Return object data in easily serializeable format"""
+        return {
+            'name'       : self.name,
+            'email'      : self.email,
+        }
