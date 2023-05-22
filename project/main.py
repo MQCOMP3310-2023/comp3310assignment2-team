@@ -108,14 +108,31 @@ def deleteMenuItem(restaurant_id,menu_id):
     else:
         return render_template('deleteMenuItem.html', item = itemToDelete)
 
-@main.route('/login/')
+@main.route('/login/', methods=['GET','POST'])
 def showLogin():
-   return render_template("login.html")
+    if request.method == 'POST':
+        user = db.session.query(User).filter_by(email = request.form['email'], password = request.form['password']).one_or_none()
+        if user == None:
+            flash('Invalid username or password')
+            return redirect(url_for('main.showLogin'))
+        return redirect(url_for('main.showRestaurants'))
+    else:
+        return render_template("login.html")
 
-@main.route('/signup/')
+@main.route('/signup/', methods=['GET','POST'])
 def showSignup():
-   return render_template("signup.html")
+    if request.method == 'POST':
+        if request.form['password'] != request.form['password_verification']:
+            flash('Passwords do not match')
+            return redirect(url_for('main.showSignup'))
+        newUser = User(name = request.form['name'], email = request.form['email'], password = request.form['password'])
+        db.session.add(newUser)
+        flash('Account created')
+        db.session.commit()
+        return redirect(url_for('main.showLogin'))
+    else:
+        return render_template("signup.html")
 
 @main.route('/logout/')
 def signOut():
-   return render_template("logout.html")
+    return render_template("logout.html")

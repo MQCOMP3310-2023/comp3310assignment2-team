@@ -32,15 +32,17 @@ class MenuItem(db.Model):
            'course'     : self.course,
        }
 
-class User():
-    name = "user"
-    email = "user@example.com"
-    password = "password"
+class User(db.Model):
+    name = db.Column(db.String(50), nullable = False)
+    email = db.Column(db.String(50), nullable = False)
+    id = db.Column(db.Integer, primary_key = True)
+    password = db.Column(db.String(50), nullable = False)
 
     @property
     def serialize(self):
-        """Return object data in easily serializeable format"""
+        """Return object data in easily serializeable format, not including password for security"""
         return {
             'name'       : self.name,
             'email'      : self.email,
+            'id'         : self.id,
         }
