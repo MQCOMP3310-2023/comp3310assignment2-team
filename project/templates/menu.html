@@ -47,6 +47,11 @@
 					<span class="glyphicon glyphicon-trash" aria-hidden="true"></span>Delete Restaurant
 				</button>
 			</a>
+			<a href="{{url_for('main.newcomment', restaurant_id = restaurant.id)}}">
+				<button class="btn btn-default" id="new-comment">
+					<span class="glyphicon glyphicon-comment" aria-hidden="true"></span>Add Comment
+				</button>
+			</a>
 		</div>
 		<div class="col-md-7"></div>
 	</div>
@@ -111,4 +116,18 @@
 			<div class="col-md-1"></div>
 		</div>
 	{% endif %}
+
+	{% if comments !=[] %}
+		<div class="comments">
+			<h1>hello</h1>
+			    {% for i in comments %}
+				    <div class="comment">
+						<h2>{{i.title}}</h2>
+						{i.name && <p>{{i.name}}</p>}
+						<p>{{i.description}}</p>
+					</div>
+				{% endfor %}
+		</div>
+	{% endif %}
+
 {% endblock %}

@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, flash, redirect, url_for
-from .models import Restaurant, MenuItem
+from .models import Restaurant, MenuItem, Comment
 from sqlalchemy import asc
 from . import db
 
@@ -49,15 +49,27 @@ def deleteRestaurant(restaurant_id):
   else:
     return render_template('deleteRestaurant.html',restaurant = restaurantToDelete)
 
-#Show a restaurant menu
+#Show a restaurant menu and comments
 @main.route('/restaurant/<int:restaurant_id>/')
 @main.route('/restaurant/<int:restaurant_id>/menu/')
 def showMenu(restaurant_id):
     restaurant = db.session.query(Restaurant).filter_by(id = restaurant_id).one()
     items = db.session.query(MenuItem).filter_by(restaurant_id = restaurant_id).all()
-    return render_template('menu.html', items = items, restaurant = restaurant)
-     
+    comments = db.session.query(Comment).filter_by(restaurant_id = restaurant_id).all()
+    return render_template('menu.html', comments = comments, items = items, restaurant = restaurant)
 
+#Create a new comment
+@main.route('/restaurant/<int:restaurant_id>/comment/new/', methods=['GET', 'POST'])
+def newComment(restaurant_id):
+   restaurant = db.session.query(Restaurant).filter_by(id = restaurant_id)
+   if request.method == 'POST':
+      comment = Comment(title = request.form['title'], description = request.form['description'], name = request.form['name'], restaurant_id = restaurant_id)
+      db.session.add(comment)
+      db.session.commit()
+      flash('New Comment %s Successfully Created' % (comment.title))
+      return redirect(url_for('main.showMenu'), restaurant_id = restaurant_id)
+   else:
+      return render_template('newcomment.html', restaurant_id = restaurant_id)
 
 #Create a new menu item
 @main.route('/restaurant/<int:restaurant_id>/menu/new/',methods=['GET','POST'])
