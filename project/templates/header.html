@@ -5,7 +5,7 @@
 		</a>
 	</div>
 	<div class="col-md-6 text-right">
-		{% if user is defined %}
+		{% if user != None %}
 			<a href="{{url_for('main.signOut')}}">{{user.name}}</a>
 		{% else %}
 			<a href="{{url_for('main.showLogin')}}">Log In</a>

@@ -10,7 +10,7 @@ def create_app():
     app = Flask(__name__)
 
     with open("secret_key", "r") as secret_file:
-        app.config['SECRET_KEY'] = secret_file.readline()
+        app.secret_key = secret_file.readline()
 
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///restaurantmenu.db'
 
