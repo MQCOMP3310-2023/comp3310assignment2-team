@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, flash, redirect, url_for, session
 from .models import Restaurant, MenuItem, User
 from sqlalchemy import asc
+from werkzeug import security
 from . import db
 
 main = Blueprint('main', __name__)
@@ -117,8 +118,8 @@ def deleteMenuItem(restaurant_id,menu_id):
 @main.route('/login/', methods=['GET','POST'])
 def showLogin():
     if request.method == 'POST':
-        user = db.session.query(User).filter_by(email = request.form['email'], password = request.form['password']).one_or_none()
-        if user == None:
+        user = db.session.query(User).filter_by(email = request.form['email']).one_or_none()
+        if user == None or not security.check_password_hash(user.password, request.form['password']):
             flash('Invalid username or password')
             return redirect(url_for('main.showLogin'))
         session['email'] = user.email
@@ -132,7 +133,7 @@ def showSignup():
         if request.form['password'] != request.form['password_verification']:
             flash('Passwords do not match')
             return redirect(url_for('main.showSignup'))
-        newUser = User(name = request.form['name'], email = request.form['email'], password = request.form['password'])
+        newUser = User(name = request.form['name'], email = request.form['email'], password = security.generate_password_hash(request.form['password'], method="scrypt"))
         db.session.add(newUser)
         flash('Account created')
         db.session.commit()
