@@ -46,3 +46,18 @@ class User(db.Model):
             'email'      : self.email,
             'id'         : self.id,
         }
+
+class UserToken(db.Model):
+    id = db.Column(db.Integer, nullable = False)
+    token = db.Column(db.String(50), nullable = False)
+    tolu = db.Column(db.Integer, nullable = False)
+    uid = db.Column(db.Integer, primary_key = True)
+
+    @property
+    def serialize(self):
+        """Return object data in easily serializable format"""
+        return {
+            'id'         : self.id,
+            'token'      : self.token,
+            'tolu'       : self.tolu,
+        }

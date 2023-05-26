@@ -1,15 +1,33 @@
 from flask import Blueprint, render_template, request, flash, redirect, url_for, session
-from .models import Restaurant, MenuItem, User
+from .models import Restaurant, MenuItem, User, UserToken
 from sqlalchemy import asc
 from werkzeug import security
+from datetime import datetime
+import calendar
+import secrets
+import logging
 from . import db
 
 main = Blueprint('main', __name__)
 
+def getTime():
+    return calendar.timegm(datetime.utcnow().utctimetuple())
+
 def getUser():
     user = None
-    if ('email' in session):
-        user = db.session.query(User).filter_by(email = f'{session["email"]}').one_or_none()
+    if ('token' in session):
+        token = db.session.query(UserToken).filter_by(token = f'{session["token"]}').one_or_none()
+        if (token == None):
+            return None
+        time = getTime()
+        if (token.tolu < time - 2592000): # One month token expiry period
+            db.session.delete(token)
+            db.session.commit()
+            session.pop('token', None)
+            return None
+        token.tolu = time
+        db.session.commit()
+        user = db.session.query(User).filter_by(id = token.id).one_or_none()
     return user
 
 #Show all restaurants
@@ -122,7 +140,16 @@ def showLogin():
         if user == None or not security.check_password_hash(user.password, request.form['password']):
             flash('Invalid username or password')
             return redirect(url_for('main.showLogin'))
-        session['email'] = user.email
+        token = None
+        while (token == None):
+            temp_token = secrets.token_hex(16)
+            if db.session.query(UserToken).filter_by(token = temp_token).one_or_none() != None:
+                logging.warning("Duplicate token " + temp_token)
+            else:
+                token = UserToken(id = user.id, token = temp_token, tolu = getTime())
+        session['token'] = token.token
+        db.session.add(token)
+        db.session.commit()
         return redirect(url_for('main.showRestaurants'))
     else:
         return render_template("login.html", user = getUser())
@@ -144,7 +171,9 @@ def showSignup():
 @main.route('/logout/', methods=['GET','POST'])
 def signOut():
     if request.method == 'POST':
-        session.pop('email', None)
+        db.session.delete(db.session.query(UserToken).filter_by(token = f'{session["token"]}').one_or_none())
+        db.session.commit()
+        session.pop('token', None)
         return redirect(url_for('main.showRestaurants'))
     else:
         return render_template("logout.html", user = getUser())
