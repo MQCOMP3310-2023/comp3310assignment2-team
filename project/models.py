@@ -37,7 +37,7 @@ class Comment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     description = db.Column(db.String(250), nullable = False)
     name = db.Column(db.String(80))
-    restaurant_id = db.Column(db.Integer, db.ForeignKey('restaurant.id'))
+    restaurantid = db.Column(db.Integer, db.ForeignKey('restaurant.id'))
     restaurant = db.relationship(Restaurant)
 
     @property
@@ -49,4 +49,3 @@ class Comment(db.Model):
             'description': self.description,
             'name'       : self.name,
         }
-
