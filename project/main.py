@@ -160,6 +160,9 @@ def showSignup():
         if request.form['password'] != request.form['password_verification']:
             flash('Passwords do not match')
             return redirect(url_for('main.showSignup'))
+        if db.session.query(User).filter_by(name = request.form['name']).one_or_none() or db.session.query(User).filter_by(email = request.form['email']).one_or_none():
+            flash('Username or email address already registered')
+            return redirect(url_for('main.showSignup'))
         newUser = User(name = request.form['name'], email = request.form['email'], password = security.generate_password_hash(request.form['password'], method="scrypt"))
         db.session.add(newUser)
         flash('Account created')
