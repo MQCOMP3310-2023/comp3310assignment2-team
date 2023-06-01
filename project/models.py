@@ -37,6 +37,8 @@ class User(db.Model):
     email = db.Column(db.String(50), nullable = False)
     id = db.Column(db.Integer, primary_key = True)
     password = db.Column(db.String(50), nullable = False)
+    permission = db.Column(db.Integer, nullable = False)
+    restaurant = db.Column(db.Integer, nullable = True)
 
     @property
     def serialize(self):
@@ -45,6 +47,8 @@ class User(db.Model):
             'name'       : self.name,
             'email'      : self.email,
             'id'         : self.id,
+            'permission' : self.permission,
+            'restaurant' : self.restaurant,
         }
 
 class UserToken(db.Model):
