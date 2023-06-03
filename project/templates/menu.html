@@ -116,4 +116,16 @@
 			<div class="col-md-1"></div>
 		</div>
 	{% endif %}
+
+	{% if comments !=[] %}
+	    <h2> Comments </h2>
+		    {% for i in comments %}
+			<div class="comment">
+				<h3>{{i.title}}</h3>
+				<p>{{i.name}}</p>
+				<p>{{i.description}}</p>
+			</div>
+	{% endfor %}
+
+	{% endif %}
 {% endblock %}

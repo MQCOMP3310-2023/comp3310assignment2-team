@@ -1,3 +1,5 @@
+import os
+
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 
@@ -7,7 +9,9 @@ db = SQLAlchemy()
 def create_app():
     app = Flask(__name__)
 
-    app.config['SECRET_KEY'] = 'secret-key-do-not-reveal'
+    with open("secret_key", "r") as secret_file:
+        app.secret_key = secret_file.readline()
+
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///restaurantmenu.db'
 
     db.init_app(app)

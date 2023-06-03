@@ -49,3 +49,33 @@ class Comment(db.Model):
             'description': self.description,
             'name'       : self.name,
         }
+
+class User(db.Model):
+    name = db.Column(db.String(50), nullable = False)
+    email = db.Column(db.String(50), nullable = False)
+    id = db.Column(db.Integer, primary_key = True)
+    password = db.Column(db.String(50), nullable = False)
+
+    @property
+    def serialize(self):
+        """Return object data in easily serializeable format, not including password for security"""
+        return {
+            'name'       : self.name,
+            'email'      : self.email,
+            'id'         : self.id,
+        }
+
+class UserToken(db.Model):
+    id = db.Column(db.Integer, nullable = False)
+    token = db.Column(db.String(50), nullable = False)
+    tolu = db.Column(db.Integer, nullable = False)
+    uid = db.Column(db.Integer, primary_key = True)
+
+    @property
+    def serialize(self):
+        """Return object data in easily serializable format"""
+        return {
+            'id'         : self.id,
+            'token'      : self.token,
+            'tolu'       : self.tolu,
+
