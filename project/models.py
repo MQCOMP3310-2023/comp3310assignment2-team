@@ -78,4 +78,4 @@ class UserToken(db.Model):
             'id'         : self.id,
             'token'      : self.token,
             'tolu'       : self.tolu,
-
+        }
