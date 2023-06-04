@@ -1,19 +1,17 @@
-import io
-import sys
+import calendar
+import logging
+import secrets
 import tempfile
-import typing
+from datetime import datetime
 
 import pyotp
 import pyqrcode
 from flask import Blueprint, render_template, request, flash, redirect, url_for, session
-from .models import Restaurant, MenuItem, Comment, User, UserToken
 from sqlalchemy import asc
 from werkzeug import security
-from datetime import datetime
-import calendar
-import secrets
-import logging
+
 from . import db
+from .models import Restaurant, MenuItem, Comment, User, UserToken
 
 main = Blueprint('main', __name__)
 
@@ -120,164 +118,173 @@ def getUser(insecure=False):
 @main.route('/')
 @main.route('/restaurant/')
 def showRestaurants():
-  restaurants = db.session.query(Restaurant).order_by(asc(Restaurant.name))
-  return render_template('restaurants.html', restaurants = restaurants, user = getUser())
+    restaurants = db.session.query(Restaurant).order_by(asc(Restaurant.name))
+    return render_template('restaurants.html', restaurants=restaurants, user=getUser())
 
-#Create a new restaurant
-@main.route('/restaurant/new/', methods=['GET','POST'])
+
+# Create a new restaurant
+@main.route('/restaurant/new/', methods=['GET', 'POST'])
 def newRestaurant():
-  user = getUser()
-  if request.method == 'POST':
-      if user.restaurant == None:
-        newRestaurant = Restaurant(name = request.form['name'])
-        db.session.add(newRestaurant)
-        db.session.commit()
-        user.restaurant = newRestaurant.id
-        if user.permission == 0:
-          user.permission = 1
-        db.session.commit() # commit twice because the first one generates a restaurant ID
-        flash('New Restaurant %s Successfully Created' % newRestaurant.name)
-      else:
-        flash('User already belongs to a restaurant')
-      return redirect(url_for('main.showRestaurants'))
-  else:
-      return render_template('newRestaurant.html', user = user)
-
-#Edit a restaurant
-@main.route('/restaurant/<int:restaurant_id>/edit/', methods = ['GET', 'POST'])
-def editRestaurant(restaurant_id):
-  user = getUser()
-  editedRestaurant = db.session.query(Restaurant).filter_by(id = restaurant_id).one()
-  if request.method == 'POST':
-      if user != None and user.restaurant == restaurant_id:
-        if request.form['name']:
-          editedRestaurant.name = request.form['name']
-          db.session.commit()
-          flash('Restaurant Successfully Edited %s' % editedRestaurant.name)
-      else:
-        flash('Failed to edit restaurant')
-      return redirect(url_for('main.showRestaurants'))
-  else:
-    return render_template('editRestaurant.html', restaurant = editedRestaurant, user = user)
-
-
-#Delete a restaurant
-@main.route('/restaurant/<int:restaurant_id>/delete/', methods = ['GET','POST'])
-def deleteRestaurant(restaurant_id):
-  user = getUser()
-  restaurantToDelete = db.session.query(Restaurant).filter_by(id = restaurant_id).one()
-  if request.method == 'POST':
-    if user != None and user.restaurant == restaurant_id:
-      db.session.delete(restaurantToDelete)
-      flash('%s Successfully Deleted' % restaurantToDelete.name)
-      user.restaurant = None
-      if user.permission == 1:
-        user.permission = 0
-      db.session.commit()
+    user = getUser()
+    if request.method == 'POST':
+        if user.restaurant == None:
+            newRestaurant = Restaurant(name=request.form['name'])
+            db.session.add(newRestaurant)
+            db.session.commit()
+            user.restaurant = newRestaurant.id
+            if user.permission == 0:
+                user.permission = 1
+            db.session.commit()  # commit twice because the first one generates a restaurant ID
+            flash('New Restaurant %s Successfully Created' % newRestaurant.name)
+        else:
+            flash('User already belongs to a restaurant')
+        return redirect(url_for('main.showRestaurants'))
     else:
-      flash('Failed to delete restaurant')
-    return redirect(url_for('main.showRestaurants', restaurant_id = restaurant_id))
-  else:
-    return render_template('deleteRestaurant.html',restaurant = restaurantToDelete, user = user)
+        return render_template('newRestaurant.html', user=user)
 
-#Show a restaurant menu and comments
+
+# Edit a restaurant
+@main.route('/restaurant/<int:restaurant_id>/edit/', methods=['GET', 'POST'])
+def editRestaurant(restaurant_id):
+    user = getUser()
+    editedRestaurant = db.session.query(Restaurant).filter_by(id=restaurant_id).one()
+    if request.method == 'POST':
+        if user != None and user.restaurant == restaurant_id:
+            if request.form['name']:
+                editedRestaurant.name = request.form['name']
+                db.session.commit()
+                flash('Restaurant Successfully Edited %s' % editedRestaurant.name)
+        else:
+            flash('Failed to edit restaurant')
+        return redirect(url_for('main.showRestaurants'))
+    else:
+        return render_template('editRestaurant.html', restaurant=editedRestaurant, user=user)
+
+
+# Delete a restaurant
+@main.route('/restaurant/<int:restaurant_id>/delete/', methods=['GET', 'POST'])
+def deleteRestaurant(restaurant_id):
+    user = getUser()
+    restaurantToDelete = db.session.query(Restaurant).filter_by(id=restaurant_id).one()
+    if request.method == 'POST':
+        if user != None and user.restaurant == restaurant_id:
+            db.session.delete(restaurantToDelete)
+            flash('%s Successfully Deleted' % restaurantToDelete.name)
+            user.restaurant = None
+            if user.permission == 1:
+                user.permission = 0
+            db.session.commit()
+        else:
+            flash('Failed to delete restaurant')
+        return redirect(url_for('main.showRestaurants', restaurant_id=restaurant_id))
+    else:
+        return render_template('deleteRestaurant.html', restaurant=restaurantToDelete, user=user)
+
+
+# Show a restaurant menu and comments
 @main.route('/restaurant/<int:restaurant_id>/')
 @main.route('/restaurant/<int:restaurant_id>/menu/')
 def showMenu(restaurant_id):
     user = getUser()
-    restaurant = db.session.query(Restaurant).filter_by(id = restaurant_id).one()
-    items = db.session.query(MenuItem).filter_by(restaurant_id = restaurant_id).all()
-    comments = db.session.query(Comment).filter_by(restaurantid = restaurant_id).all()
-    return render_template('menu.html', comments = comments, items = items, restaurant = restaurant, user = getUser())
-     
+    restaurant = db.session.query(Restaurant).filter_by(id=restaurant_id).one()
+    items = db.session.query(MenuItem).filter_by(restaurant_id=restaurant_id).all()
+    comments = db.session.query(Comment).filter_by(restaurantid=restaurant_id).all()
+    return render_template('menu.html', comments=comments, items=items, restaurant=restaurant, user=getUser())
 
-#Create a new comment
+
+# Create a new comment
 @main.route('/restaurant/<int:restaurant_id>/comment/new/', methods=['GET', 'POST'])
 def newComment(restaurant_id):
-   user = getUser()
-   if request.method == 'POST':
-      if user != None and user.permission == 0:
-        comment = Comment(
-            title = request.form['title'],
-            description = request.form['description'],
-            restaurantid = restaurant_id,
-            userid = user.id,
-            username = False if 'name' in request.form else True
-        )
-        db.session.add(comment)
-        db.session.commit()
-        flash('New Comment %s Successfully Created' % (comment.title))
-        return redirect(url_for('main.showMenu', restaurant_id = restaurant_id, user = user))
-      else:
-         flash('Failed to create comment')
-         return redirect(url_for('main.showMenu', restaurant_id = restaurant_id, user = user))
-   else:
-      return render_template('newcomment.html', restaurant_id = restaurant_id, user = user)
+    user = getUser()
+    if request.method == 'POST':
+        if user != None and user.permission == 0:
+            comment = Comment(
+                title=request.form['title'],
+                description=request.form['description'],
+                restaurantid=restaurant_id,
+                userid=user.id,
+                username=False if 'name' in request.form else True
+            )
+            db.session.add(comment)
+            db.session.commit()
+            flash('New Comment %s Successfully Created' % (comment.title))
+            return redirect(url_for('main.showMenu', restaurant_id=restaurant_id, user=user))
+        else:
+            flash('Failed to create comment')
+            return redirect(url_for('main.showMenu', restaurant_id=restaurant_id, user=user))
+    else:
+        return render_template('newcomment.html', restaurant_id=restaurant_id, user=user)
 
-#Create a new menu item
-@main.route('/restaurant/<int:restaurant_id>/menu/new/',methods=['GET','POST'])
+
+# Create a new menu item
+@main.route('/restaurant/<int:restaurant_id>/menu/new/', methods=['GET', 'POST'])
 def newMenuItem(restaurant_id):
-  user = getUser()
-  restaurant = db.session.query(Restaurant).filter_by(id = restaurant_id).one()
-  if request.method == 'POST':
-      if user != None and user.restaurant == restaurant_id:
-        print(request.form['name'])
-        if(request.form['name'].value == "anonymous"):
-           username = user.name
-        newItem = MenuItem(name = request.form['name'], description = request.form['description'], price = request.form['price'], course = request.form['course'], restaurant_id = restaurant_id, username = username)
-        db.session.add(newItem)
-        db.session.commit()
-        flash('New Menu %s Item Successfully Created' % (newItem.name))
-      else:
-        flash('Failed to create menu item')
-      return redirect(url_for('main.showMenu', restaurant_id = restaurant_id))
-  else:
-      return render_template('newmenuitem.html', restaurant_id = restaurant_id, user = user)
+    user = getUser()
+    restaurant = db.session.query(Restaurant).filter_by(id=restaurant_id).one()
+    if request.method == 'POST':
+        if user != None and user.restaurant == restaurant_id:
+            print(request.form['name'])
+            if (request.form['name'].value == "anonymous"):
+                username = user.name
+            newItem = MenuItem(name=request.form['name'], description=request.form['description'],
+                               price=request.form['price'], course=request.form['course'], restaurant_id=restaurant_id,
+                               username=username)
+            db.session.add(newItem)
+            db.session.commit()
+            flash('New Menu %s Item Successfully Created' % (newItem.name))
+        else:
+            flash('Failed to create menu item')
+        return redirect(url_for('main.showMenu', restaurant_id=restaurant_id))
+    else:
+        return render_template('newmenuitem.html', restaurant_id=restaurant_id, user=user)
 
-#Edit a menu item
-@main.route('/restaurant/<int:restaurant_id>/menu/<int:menu_id>/edit', methods=['GET','POST'])
+
+# Edit a menu item
+@main.route('/restaurant/<int:restaurant_id>/menu/<int:menu_id>/edit', methods=['GET', 'POST'])
 def editMenuItem(restaurant_id, menu_id):
     user = getUser()
-    editedItem = db.session.query(MenuItem).filter_by(id = menu_id).one()
-    restaurant = db.session.query(Restaurant).filter_by(id = restaurant_id).one()
+    editedItem = db.session.query(MenuItem).filter_by(id=menu_id).one()
+    restaurant = db.session.query(Restaurant).filter_by(id=restaurant_id).one()
     if request.method == 'POST':
         if user != None and user.restaurant == restaurant_id:
-          if request.form['name']:
-              editedItem.name = request.form['name']
-          if request.form['description']:
-              editedItem.description = request.form['description']
-          if request.form['price']:
-              editedItem.price = request.form['price']
-          if request.form['course']:
-              editedItem.course = request.form['course']
-          db.session.add(editedItem)
-          db.session.commit()
-          flash('Menu Item Successfully Edited')
+            if request.form['name']:
+                editedItem.name = request.form['name']
+            if request.form['description']:
+                editedItem.description = request.form['description']
+            if request.form['price']:
+                editedItem.price = request.form['price']
+            if request.form['course']:
+                editedItem.course = request.form['course']
+            db.session.add(editedItem)
+            db.session.commit()
+            flash('Menu Item Successfully Edited')
         else:
-          flash('Failed to edit menu item')
-        return redirect(url_for('main.showMenu', restaurant_id = restaurant_id))
+            flash('Failed to edit menu item')
+        return redirect(url_for('main.showMenu', restaurant_id=restaurant_id))
     else:
-        return render_template('editmenuitem.html', restaurant_id = restaurant_id, menu_id = menu_id, item = editedItem, user = user)
+        return render_template('editmenuitem.html', restaurant_id=restaurant_id, menu_id=menu_id, item=editedItem,
+                               user=user)
 
 
-#Delete a menu item
-@main.route('/restaurant/<int:restaurant_id>/menu/<int:menu_id>/delete', methods = ['GET','POST'])
-def deleteMenuItem(restaurant_id,menu_id):
+# Delete a menu item
+@main.route('/restaurant/<int:restaurant_id>/menu/<int:menu_id>/delete', methods=['GET', 'POST'])
+def deleteMenuItem(restaurant_id, menu_id):
     user = getUser()
-    restaurant = db.session.query(Restaurant).filter_by(id = restaurant_id).one()
-    itemToDelete = db.session.query(MenuItem).filter_by(id = menu_id).one() 
+    restaurant = db.session.query(Restaurant).filter_by(id=restaurant_id).one()
+    itemToDelete = db.session.query(MenuItem).filter_by(id=menu_id).one()
     if request.method == 'POST':
         if user != None and user.restaurant == restaurant_id:
-          db.session.delete(itemToDelete)
-          db.session.commit()
-          flash('Menu Item Successfully Deleted')
+            db.session.delete(itemToDelete)
+            db.session.commit()
+            flash('Menu Item Successfully Deleted')
         else:
-          flash('Failed to delete menu item')
-        return redirect(url_for('main.showMenu', restaurant_id = restaurant_id))
+            flash('Failed to delete menu item')
+        return redirect(url_for('main.showMenu', restaurant_id=restaurant_id))
     else:
-        return render_template('deleteMenuItem.html', item = itemToDelete, user = user)
+        return render_template('deleteMenuItem.html', item=itemToDelete, user=user)
 
-@main.route('/login/', methods=['GET','POST'])
+
+@main.route('/login/', methods=['GET', 'POST'])
 def showLogin():
     if request.method == 'POST':
         email = str(request.form.get("email"))
