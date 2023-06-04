@@ -39,6 +39,8 @@ class User(db.Model):
     password = db.Column(db.String(50), nullable = False)
     permission = db.Column(db.Integer, nullable = False)
     restaurant = db.Column(db.Integer, nullable = True)
+    totp = db.Column(db.String(32))
+    totp_verified = db.Column(db.Boolean())
 
     @property
     def serialize(self):
@@ -56,6 +58,7 @@ class UserToken(db.Model):
     token = db.Column(db.String(50), nullable = False)
     tolu = db.Column(db.Integer, nullable = False)
     uid = db.Column(db.Integer, primary_key = True)
+    trusted = db.Column(db.Boolean, default=False)
 
     @property
     def serialize(self):
@@ -65,7 +68,7 @@ class UserToken(db.Model):
             'token'      : self.token,
             'tolu'       : self.tolu,
         }
-    
+
 class Comment(db.Model):
     title = db.Column(db.String(80), nullable = False)
     id = db.Column(db.Integer, primary_key=True)
