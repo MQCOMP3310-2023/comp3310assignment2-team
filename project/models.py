@@ -31,24 +31,6 @@ class MenuItem(db.Model):
            'price'      : self.price,
            'course'     : self.course,
        }
-    
-class Comment(db.Model):
-    title = db.Column(db.String(80), nullable = False)
-    id = db.Column(db.Integer, primary_key=True)
-    description = db.Column(db.String(250), nullable = False)
-    name = db.Column(db.String(80))
-    restaurantid = db.Column(db.Integer, db.ForeignKey('restaurant.id'))
-    restaurant = db.relationship(Restaurant)
-
-    @property
-    def serialize(self):
-        """Return object data in easily serializeable format"""
-        return {
-            'title'      : self.title,
-            'id'         : self.id,
-            'description': self.description,
-            'name'       : self.name,
-        }
 
 class User(db.Model):
     name = db.Column(db.String(50), nullable = False)
@@ -82,4 +64,24 @@ class UserToken(db.Model):
             'id'         : self.id,
             'token'      : self.token,
             'tolu'       : self.tolu,
+        }
+    
+class Comment(db.Model):
+    title = db.Column(db.String(80), nullable = False)
+    id = db.Column(db.Integer, primary_key=True)
+    description = db.Column(db.String(250), nullable = False)
+    username = db.Column(db.String(80))
+    restaurantid = db.Column(db.Integer, db.ForeignKey('restaurant.id'))
+    restaurant = db.relationship(Restaurant)
+    userid = db.Column(db.Integer, db.ForeignKey('user.id'))
+    user = db.relationship(User)
+
+    @property
+    def serialize(self):
+        """Return object data in easily serializeable format"""
+        return {
+            'title'      : self.title,
+            'id'         : self.id,
+            'description': self.description,
+            'username'   : self.username,
         }

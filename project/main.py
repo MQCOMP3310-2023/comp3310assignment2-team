@@ -111,7 +111,7 @@ def newComment(restaurant_id):
    user = getUser()
    if request.method == 'POST':
       if user != None and user.permission == 0:
-        comment = Comment(title = request.form['title'], description = request.form['description'], name = request.form['name'], restaurantid = restaurant_id)
+        comment = Comment(title = request.form['title'], description = request.form['description'], restaurantid = restaurant_id, userid = user.id)
         db.session.add(comment)
         db.session.commit()
         flash('New Comment %s Successfully Created' % (comment.title))
@@ -129,7 +129,10 @@ def newMenuItem(restaurant_id):
   restaurant = db.session.query(Restaurant).filter_by(id = restaurant_id).one()
   if request.method == 'POST':
       if user != None and user.restaurant == restaurant_id:
-        newItem = MenuItem(name = request.form['name'], description = request.form['description'], price = request.form['price'], course = request.form['course'], restaurant_id = restaurant_id)
+        print(request.form['name'])
+        if(request.form['name'].value == "anonymous"):
+           username = user.name
+        newItem = MenuItem(name = request.form['name'], description = request.form['description'], price = request.form['price'], course = request.form['course'], restaurant_id = restaurant_id, username = username)
         db.session.add(newItem)
         db.session.commit()
         flash('New Menu %s Item Successfully Created' % (newItem.name))
