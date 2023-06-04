@@ -98,9 +98,12 @@ def deleteRestaurant(restaurant_id):
 @main.route('/restaurant/<int:restaurant_id>/')
 @main.route('/restaurant/<int:restaurant_id>/menu/')
 def showMenu(restaurant_id):
+    user = getUser()
     restaurant = db.session.query(Restaurant).filter_by(id = restaurant_id).one()
     items = db.session.query(MenuItem).filter_by(restaurant_id = restaurant_id).all()
-    comments = db.session.query(Comment).filter_by(restaurantid = restaurant_id).all()
+    comments = []
+    if user.permission == 0 or user.permission == 1 or user.permission == 2:
+        comments = db.session.query(Comment).filter_by(restaurantid = restaurant_id).all()
     return render_template('menu.html', comments = comments, items = items, restaurant = restaurant, user = getUser())
      
 
