@@ -42,12 +42,14 @@
 					<span class="glyphicon glyphicon-glass" aria-hidden="true"></span>Add Menu Item
 				</button>
 			</a>
+			{% if user != None %}
 			<a href="{{url_for('main.newComment', restaurant_id = restaurant.id)}}">
 				<button class="btn btn-default" id="new-comment">
 					<span class="glyphicon glyphicon-comment" aria-hidden="true"></span>Add Comment
 				</button>
 			</a>
-						<a href="{{url_for('main.deleteRestaurant', restaurant_id = restaurant.id )}}">
+			{% endif %}
+			<a href="{{url_for('main.deleteRestaurant', restaurant_id = restaurant.id )}}">
 				<button class="btn btn-default delete" id="delete-restaurant">
 					<span class="glyphicon glyphicon-trash" aria-hidden="true"></span>Delete Restaurant
 				</button>
@@ -122,7 +124,11 @@
 		    {% for i in comments %}
 			<div class="comment">
 				<h3>{{i.title}}</h3>
-				<p>{{i.name}}</p>
+                {% if i.username %}
+				    <p>{{i.user.name}}</p>
+                {% else %}
+				    <p><i>Anonymous</i></p>
+                {% endif %}
 				<p>{{i.description}}</p>
 			</div>
 	{% endfor %}
