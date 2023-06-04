@@ -70,7 +70,7 @@ class Comment(db.Model):
     title = db.Column(db.String(80), nullable = False)
     id = db.Column(db.Integer, primary_key=True)
     description = db.Column(db.String(250), nullable = False)
-    username = db.Column(db.String(80))
+    username = db.Column(db.Boolean(), default=True)
     restaurantid = db.Column(db.Integer, db.ForeignKey('restaurant.id'))
     restaurant = db.relationship(Restaurant)
     userid = db.Column(db.Integer, db.ForeignKey('user.id'))

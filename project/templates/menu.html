@@ -124,7 +124,11 @@
 		    {% for i in comments %}
 			<div class="comment">
 				<h3>{{i.title}}</h3>
-				<p>{{i.name}}</p>
+                {% if i.username %}
+				    <p>{{i.user.name}}</p>
+                {% else %}
+				    <p><i>Anonymous</i></p>
+                {% endif %}
 				<p>{{i.description}}</p>
 			</div>
 	{% endfor %}

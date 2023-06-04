@@ -111,7 +111,13 @@ def newComment(restaurant_id):
    user = getUser()
    if request.method == 'POST':
       if user != None and user.permission == 0:
-        comment = Comment(title = request.form['title'], description = request.form['description'], restaurantid = restaurant_id, userid = user.id)
+        comment = Comment(
+            title = request.form['title'],
+            description = request.form['description'],
+            restaurantid = restaurant_id,
+            userid = user.id,
+            username = False if 'name' in request.form else True
+        )
         db.session.add(comment)
         db.session.commit()
         flash('New Comment %s Successfully Created' % (comment.title))
