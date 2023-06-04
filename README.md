@@ -5,14 +5,14 @@ This codebase implements a basic restaurant listing web application using python
 
 # Setup
 
-To setup the basic website you will need to have the following installed:
+To set up the basic website you will need to have the following installed:
 
 - python3
 - pip
 
 Pip is the package manager for Python.  You can install the remaining packages required for this task using pip. You will need to run the following:
 
-- pip install flask flask-sqlalchemy flask-login waitress
+- pip install flask flask-sqlalchemy flask-login waitress PyQRCode pyotp
 
 You should have at least the following versions installed: 
 - Python             3.9.6
@@ -20,6 +20,9 @@ You should have at least the following versions installed:
 - Flask-Login        0.6.2
 - Flask-SQLAlchemy   3.0.3
 - Waitress           2.1.2
+- PyQRCode           1.2.1
+- pyotp	             2.8.0
+
 
 You will also need sqlite installed for the database backend.
 

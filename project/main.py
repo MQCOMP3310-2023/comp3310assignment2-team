@@ -56,6 +56,8 @@ def create_session(email, password):
 
         return user, token
 
+    return None
+
 
 def get_session_token(token: str) -> UserToken:
     return db.session.query(UserToken).filter_by(token=token).one_or_none()
