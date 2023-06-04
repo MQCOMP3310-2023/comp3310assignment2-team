@@ -1,3 +1,10 @@
+import io
+import sys
+import tempfile
+import typing
+
+import pyotp
+import pyqrcode
 from flask import Blueprint, render_template, request, flash, redirect, url_for, session
 from .models import Restaurant, MenuItem, Comment, User, UserToken
 from sqlalchemy import asc
@@ -10,112 +17,195 @@ from . import db
 
 main = Blueprint('main', __name__)
 
+
+#
+# HELPER METHODS
+#
+
 def getTime():
     return calendar.timegm(datetime.utcnow().utctimetuple())
 
-def getUser():
-    user = None
-    if ('token' in session):
-        token = db.session.query(UserToken).filter_by(token = f'{session["token"]}').one_or_none()
-        if (token == None):
+
+def create_session(email, password):
+    user = db.session.query(User).filter_by(email=email).one_or_none()
+
+    if user is None:
+        return None
+
+    # Check password
+    if security.check_password_hash(user.password, password):
+
+        new_token = secrets.token_hex(16)
+
+        # Check for token collision
+        if db.session.query(UserToken).filter_by(token=new_token).one_or_none() is not None:
+            logging.warning("Generated duplicate token.")
             return None
-        time = getTime()
-        if (token.tolu < time - 2592000): # One month token expiry period
-            db.session.delete(token)
-            db.session.commit()
-            session.pop('token', None)
-            return None
-        token.tolu = time
+
+        # Check is 2fa is required
+        # If yes, an "insecure" session is created, and user is redirected to next steps
+        token = None
+        if user.totp is not None and user.totp_verified is True:
+            token = UserToken(id=user.id, token=new_token, tolu=getTime(), trusted=False)
+        else:
+            token = UserToken(id=user.id, token=new_token, tolu=getTime(), trusted=True)
+
+        session['token'] = token.token
+        db.session.add(token)
         db.session.commit()
-        user = db.session.query(User).filter_by(id = token.id).one_or_none()
+
+        return user, token
+
+
+def get_session_token(token: str) -> UserToken:
+    return db.session.query(UserToken).filter_by(token=token).one_or_none()
+
+
+def upgrade_session(user: User, token: UserToken, code):
+    if pyotp.TOTP(user.totp).verify(code):
+        token.trusted = True
+        db.session.commit()
+
+    return user, token
+
+
+def destroy_session(token):
+    token = session.get("token")
+
+    if token is None:
+        return
+
+    db.session.delete(db.session.query(UserToken).filter_by(token=token).one_or_none())
+    db.session.commit()
+
+    session.pop('token', None)
+
+
+def getUser(insecure=False):
+    if 'token' not in session:
+        return None
+
+    token = session.get('token')
+    token_object = db.session.query(UserToken).filter_by(token=token).one_or_none()
+
+    if token_object is None:
+        return None
+
+    if token_object.tolu < getTime() - 2592000:  # One month token expiry period
+        db.session.delete(token)
+        db.session.commit()
+
+        session.pop('token', None)
+
+        return None
+
+    if insecure is False and not token_object.trusted:
+        return None
+
+    token_object.tolu = getTime()
+    db.session.commit()
+
+    user = db.session.query(User).filter_by(id=token_object.id).one_or_none()
     return user
 
-#Show all restaurants
+
+#
+# VIEW METHODS
+#
+
+
+# Show all restaurants
 @main.route('/')
 @main.route('/restaurant/')
 def showRestaurants():
-  restaurants = db.session.query(Restaurant).order_by(asc(Restaurant.name))
-  return render_template('restaurants.html', restaurants = restaurants, user = getUser())
+    restaurants = db.session.query(Restaurant).order_by(asc(Restaurant.name))
+    return render_template('restaurants.html', restaurants=restaurants, user=getUser())
 
-#Create a new restaurant
-@main.route('/restaurant/new/', methods=['GET','POST'])
+
+# Create a new restaurant
+@main.route('/restaurant/new/', methods=['GET', 'POST'])
 def newRestaurant():
-  if request.method == 'POST':
-      newRestaurant = Restaurant(name = request.form['name'])
-      db.session.add(newRestaurant)
-      flash('New Restaurant %s Successfully Created' % newRestaurant.name)
-      db.session.commit()
-      return redirect(url_for('main.showRestaurants'))
-  else:
-      return render_template('newRestaurant.html', user = getUser())
-
-#Edit a restaurant
-@main.route('/restaurant/<int:restaurant_id>/edit/', methods = ['GET', 'POST'])
-def editRestaurant(restaurant_id):
-  editedRestaurant = db.session.query(Restaurant).filter_by(id = restaurant_id).one()
-  if request.method == 'POST':
-      if request.form['name']:
-        editedRestaurant.name = request.form['name']
-        flash('Restaurant Successfully Edited %s' % editedRestaurant.name)
+    if request.method == 'POST':
+        newRestaurant = Restaurant(name=request.form['name'])
+        db.session.add(newRestaurant)
+        flash('New Restaurant %s Successfully Created' % newRestaurant.name)
+        db.session.commit()
         return redirect(url_for('main.showRestaurants'))
-  else:
-    return render_template('editRestaurant.html', restaurant = editedRestaurant, user = getUser())
+    else:
+        return render_template('newRestaurant.html', user=getUser())
 
 
-#Delete a restaurant
-@main.route('/restaurant/<int:restaurant_id>/delete/', methods = ['GET','POST'])
+# Edit a restaurant
+@main.route('/restaurant/<int:restaurant_id>/edit/', methods=['GET', 'POST'])
+def editRestaurant(restaurant_id):
+    editedRestaurant = db.session.query(Restaurant).filter_by(id=restaurant_id).one()
+    if request.method == 'POST':
+        if request.form['name']:
+            editedRestaurant.name = request.form['name']
+            flash('Restaurant Successfully Edited %s' % editedRestaurant.name)
+            return redirect(url_for('main.showRestaurants'))
+    else:
+        return render_template('editRestaurant.html', restaurant=editedRestaurant, user=getUser())
+
+
+# Delete a restaurant
+@main.route('/restaurant/<int:restaurant_id>/delete/', methods=['GET', 'POST'])
 def deleteRestaurant(restaurant_id):
-  restaurantToDelete = db.session.query(Restaurant).filter_by(id = restaurant_id).one()
-  if request.method == 'POST':
-    db.session.delete(restaurantToDelete)
-    flash('%s Successfully Deleted' % restaurantToDelete.name)
-    db.session.commit()
-    return redirect(url_for('main.showRestaurants', restaurant_id = restaurant_id))
-  else:
-    return render_template('deleteRestaurant.html',restaurant = restaurantToDelete, user = getUser())
+    restaurantToDelete = db.session.query(Restaurant).filter_by(id=restaurant_id).one()
+    if request.method == 'POST':
+        db.session.delete(restaurantToDelete)
+        flash('%s Successfully Deleted' % restaurantToDelete.name)
+        db.session.commit()
+        return redirect(url_for('main.showRestaurants', restaurant_id=restaurant_id))
+    else:
+        return render_template('deleteRestaurant.html', restaurant=restaurantToDelete, user=getUser())
 
-#Show a restaurant menu and comments
+
+# Show a restaurant menu and comments
 @main.route('/restaurant/<int:restaurant_id>/')
 @main.route('/restaurant/<int:restaurant_id>/menu/')
 def showMenu(restaurant_id):
-    restaurant = db.session.query(Restaurant).filter_by(id = restaurant_id).one()
-    items = db.session.query(MenuItem).filter_by(restaurant_id = restaurant_id).all()
-    comments = db.session.query(Comment).filter_by(restaurantid = restaurant_id).all()
-    return render_template('menu.html', comments = comments, items = items, restaurant = restaurant, user = getUser())
-     
+    restaurant = db.session.query(Restaurant).filter_by(id=restaurant_id).one()
+    items = db.session.query(MenuItem).filter_by(restaurant_id=restaurant_id).all()
+    comments = db.session.query(Comment).filter_by(restaurantid=restaurant_id).all()
+    return render_template('menu.html', comments=comments, items=items, restaurant=restaurant, user=getUser())
 
-#Create a new comment
+
+# Create a new comment
 @main.route('/restaurant/<int:restaurant_id>/comment/new/', methods=['GET', 'POST'])
 def newComment(restaurant_id):
-   restaurant = db.session.query(Restaurant).filter_by(id = restaurant_id).one()
-   if request.method == 'POST':
-      comment = Comment(title = request.form['title'], description = request.form['description'], name = request.form['name'], restaurantid = restaurant_id)
-      db.session.add(comment)
-      db.session.commit()
-      flash('New Comment %s Successfully Created' % (comment.title))
-      return redirect(url_for('main.showMenu', restaurant_id = restaurant_id))
-   else:
-      return render_template('newcomment.html', restaurant_id = restaurant_id)
+    restaurant = db.session.query(Restaurant).filter_by(id=restaurant_id).one()
+    if request.method == 'POST':
+        comment = Comment(title=request.form['title'], description=request.form['description'],
+                          name=request.form['name'], restaurantid=restaurant_id)
+        db.session.add(comment)
+        db.session.commit()
+        flash('New Comment %s Successfully Created' % (comment.title))
+        return redirect(url_for('main.showMenu', restaurant_id=restaurant_id))
+    else:
+        return render_template('newcomment.html', restaurant_id=restaurant_id)
 
-#Create a new menu item
-@main.route('/restaurant/<int:restaurant_id>/menu/new/',methods=['GET','POST'])
+
+# Create a new menu item
+@main.route('/restaurant/<int:restaurant_id>/menu/new/', methods=['GET', 'POST'])
 def newMenuItem(restaurant_id):
-  restaurant = db.session.query(Restaurant).filter_by(id = restaurant_id).one()
-  if request.method == 'POST':
-      newItem = MenuItem(name = request.form['name'], description = request.form['description'], price = request.form['price'], course = request.form['course'], restaurant_id = restaurant_id)
-      db.session.add(newItem)
-      db.session.commit()
-      flash('New Menu %s Item Successfully Created' % (newItem.name))
-      return redirect(url_for('main.showMenu', restaurant_id = restaurant_id))
-  else:
-      return render_template('newmenuitem.html', restaurant_id = restaurant_id, user = getUser())
+    restaurant = db.session.query(Restaurant).filter_by(id=restaurant_id).one()
+    if request.method == 'POST':
+        newItem = MenuItem(name=request.form['name'], description=request.form['description'],
+                           price=request.form['price'], course=request.form['course'], restaurant_id=restaurant_id)
+        db.session.add(newItem)
+        db.session.commit()
+        flash('New Menu %s Item Successfully Created' % (newItem.name))
+        return redirect(url_for('main.showMenu', restaurant_id=restaurant_id))
+    else:
+        return render_template('newmenuitem.html', restaurant_id=restaurant_id, user=getUser())
 
-#Edit a menu item
-@main.route('/restaurant/<int:restaurant_id>/menu/<int:menu_id>/edit', methods=['GET','POST'])
+
+# Edit a menu item
+@main.route('/restaurant/<int:restaurant_id>/menu/<int:menu_id>/edit', methods=['GET', 'POST'])
 def editMenuItem(restaurant_id, menu_id):
-
-    editedItem = db.session.query(MenuItem).filter_by(id = menu_id).one()
-    restaurant = db.session.query(Restaurant).filter_by(id = restaurant_id).one()
+    editedItem = db.session.query(MenuItem).filter_by(id=menu_id).one()
+    restaurant = db.session.query(Restaurant).filter_by(id=restaurant_id).one()
     if request.method == 'POST':
         if request.form['name']:
             editedItem.name = request.form['name']
@@ -126,70 +216,156 @@ def editMenuItem(restaurant_id, menu_id):
         if request.form['course']:
             editedItem.course = request.form['course']
         db.session.add(editedItem)
-        db.session.commit() 
+        db.session.commit()
         flash('Menu Item Successfully Edited')
-        return redirect(url_for('main.showMenu', restaurant_id = restaurant_id))
+        return redirect(url_for('main.showMenu', restaurant_id=restaurant_id))
     else:
-        return render_template('editmenuitem.html', restaurant_id = restaurant_id, menu_id = menu_id, item = editedItem, user = getUser())
+        return render_template('editmenuitem.html', restaurant_id=restaurant_id, menu_id=menu_id, item=editedItem,
+                               user=getUser())
 
 
-#Delete a menu item
-@main.route('/restaurant/<int:restaurant_id>/menu/<int:menu_id>/delete', methods = ['GET','POST'])
-def deleteMenuItem(restaurant_id,menu_id):
-    restaurant = db.session.query(Restaurant).filter_by(id = restaurant_id).one()
-    itemToDelete = db.session.query(MenuItem).filter_by(id = menu_id).one() 
+# Delete a menu item
+@main.route('/restaurant/<int:restaurant_id>/menu/<int:menu_id>/delete', methods=['GET', 'POST'])
+def deleteMenuItem(restaurant_id, menu_id):
+    restaurant = db.session.query(Restaurant).filter_by(id=restaurant_id).one()
+    itemToDelete = db.session.query(MenuItem).filter_by(id=menu_id).one()
     if request.method == 'POST':
         db.session.delete(itemToDelete)
         db.session.commit()
         flash('Menu Item Successfully Deleted')
-        return redirect(url_for('main.showMenu', restaurant_id = restaurant_id))
+        return redirect(url_for('main.showMenu', restaurant_id=restaurant_id))
     else:
-        return render_template('deleteMenuItem.html', item = itemToDelete, user = getUser())
+        return render_template('deleteMenuItem.html', item=itemToDelete, user=getUser())
 
-@main.route('/login/', methods=['GET','POST'])
+
+@main.route('/login/', methods=['GET', 'POST'])
 def showLogin():
     if request.method == 'POST':
-        user = db.session.query(User).filter_by(email = request.form['email']).one_or_none()
-        if user == None or not security.check_password_hash(user.password, request.form['password']):
+        email = str(request.form.get("email"))
+        password = str(request.form.get("password"))
+
+        if email is None or password is None:
+            flash('Something went wrong')
+            return redirect(url_for('main.showLogin'))
+
+        user, token = create_session(email, password)
+
+        if token is None:
             flash('Invalid username or password')
             return redirect(url_for('main.showLogin'))
-        token = None
-        while (token == None):
-            temp_token = secrets.token_hex(16)
-            if db.session.query(UserToken).filter_by(token = temp_token).one_or_none() != None:
-                logging.warning("Duplicate token " + temp_token)
-            else:
-                token = UserToken(id = user.id, token = temp_token, tolu = getTime())
-        session['token'] = token.token
-        db.session.add(token)
-        db.session.commit()
-        return redirect(url_for('main.showRestaurants'))
-    else:
-        return render_template("login.html", user = getUser())
 
-@main.route('/signup/', methods=['GET','POST'])
+        if token.trusted is False:
+            return redirect(url_for('main.login2FA'))
+
+        return redirect(url_for('main.showRestaurants'))
+
+    if request.method == 'GET':
+        return render_template("login.html", user=getUser())
+
+
+@main.route('/login/stage2', methods=['GET', 'POST'])
+def login2FA():
+    user = getUser(insecure=True)
+
+    if request.method == 'POST':
+        code = str(request.form.get("code"))
+
+        if user is None or code is None:
+            destroy_session()
+            return redirect(url_for('main.showLogin'))
+
+        user, token = upgrade_session(user, session.get('token'), code)
+
+        # Check if session upgrade was successful
+        if not token.trusted:
+            destroy_session()
+            return redirect(url_for('main.showLogin'))
+
+        return redirect(url_for('main.showRestaurants'))
+
+    if request.method == 'GET':
+        return render_template('login2FA.html', user=user)
+
+
+@main.route('/signup/', methods=['GET', 'POST'])
 def showSignup():
     if request.method == 'POST':
         if request.form['password'] != request.form['password_verification']:
             flash('Passwords do not match')
             return redirect(url_for('main.showSignup'))
-        if db.session.query(User).filter_by(name = request.form['name']).one_or_none() or db.session.query(User).filter_by(email = request.form['email']).one_or_none():
+        if db.session.query(User).filter_by(name=request.form['name']).one_or_none() or db.session.query(
+                User).filter_by(email=request.form['email']).one_or_none():
             flash('Username or email address already registered')
             return redirect(url_for('main.showSignup'))
-        newUser = User(name = request.form['name'], email = request.form['email'], password = security.generate_password_hash(request.form['password'], method="scrypt"))
+        newUser = User(name=request.form['name'], email=request.form['email'],
+                       password=security.generate_password_hash(request.form['password'], method="scrypt"))
         db.session.add(newUser)
         flash('Account created')
         db.session.commit()
         return redirect(url_for('main.showLogin'))
     else:
-        return render_template("signup.html", user = getUser())
+        return render_template("signup.html", user=getUser())
 
-@main.route('/logout/', methods=['GET','POST'])
+
+@main.route('/account/', methods=['GET'])
+def accountSettings():
+    return render_template("account.html", user=getUser())
+
+
+@main.route('/logout/', methods=['POST'])
 def signOut():
+    destroy_session()
+    return redirect(url_for('main.showRestaurants'))
+
+
+@main.route('/totp/', methods=['GET', 'POST'])
+def totp():
+    user = getUser()
+
     if request.method == 'POST':
-        db.session.delete(db.session.query(UserToken).filter_by(token = f'{session["token"]}').one_or_none())
+
+        # Sanity check for users with 2fa already enabled
+        if user.totp is not None and user.totp_verified is True:
+            return redirect(url_for('main.accountSettings'))
+
+        # Generate secret key and redirect to qr code page
+        user.totp = pyotp.random_base32()
         db.session.commit()
-        session.pop('token', None)
+        return redirect(url_for('main.totp'), code=303)
+
+    elif request.method == 'GET':
+
+        if user.totp is None:
+            redirect(url_for('main.accountSettings'))
+
+        url = pyotp.TOTP(user.totp).provisioning_uri(name=user.email, issuer_name='COMP3310 Restaurant App')
+        qr = pyqrcode.create(url)
+
+        svg = tempfile.SpooledTemporaryFile(max_size=16 * 1024, mode="rw+b")
+        qr.svg(svg, scale=7)
+
+        svg.seek(0)
+        svg_string = str(svg.read())
+
+        return render_template('totp.html', user=user, qr=svg_string)
+
+
+@main.route('/totp/verify/', methods=['POST'])
+def totp2():
+    user = getUser()
+    if user is None:
         return redirect(url_for('main.showRestaurants'))
+
+    code = str(request.form.get("code"))
+    if code is None:
+        return redirect(url_for('main.accountSettings'))
+
+    if len(code) == 6 and pyotp.TOTP(user.totp).verify(code):
+        user.totp_verified = True
+        db.session.commit()
+        return redirect(url_for('main.accountSettings'), code=303)
     else:
-        return render_template("logout.html", user = getUser())
+        user.totp = None
+        user.totp_verified = False
+        db.session.commit()
+        return redirect(url_for('main.accountSettings'), code=303)

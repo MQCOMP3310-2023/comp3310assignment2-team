@@ -55,6 +55,8 @@ class User(db.Model):
     email = db.Column(db.String(50), nullable = False)
     id = db.Column(db.Integer, primary_key = True)
     password = db.Column(db.String(50), nullable = False)
+    totp = db.Column(db.String(32))
+    totp_verified = db.Column(db.Boolean())
 
     @property
     def serialize(self):
@@ -70,6 +72,7 @@ class UserToken(db.Model):
     token = db.Column(db.String(50), nullable = False)
     tolu = db.Column(db.Integer, nullable = False)
     uid = db.Column(db.Integer, primary_key = True)
+    trusted = db.Column(db.Boolean, default=False)
 
     @property
     def serialize(self):
