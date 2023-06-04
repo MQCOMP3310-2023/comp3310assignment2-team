@@ -101,24 +101,26 @@ def showMenu(restaurant_id):
     user = getUser()
     restaurant = db.session.query(Restaurant).filter_by(id = restaurant_id).one()
     items = db.session.query(MenuItem).filter_by(restaurant_id = restaurant_id).all()
-    comments = []
-    if user.permission == 0 or user.permission == 1 or user.permission == 2:
-        comments = db.session.query(Comment).filter_by(restaurantid = restaurant_id).all()
+    comments = db.session.query(Comment).filter_by(restaurantid = restaurant_id).all()
     return render_template('menu.html', comments = comments, items = items, restaurant = restaurant, user = getUser())
      
 
 #Create a new comment
 @main.route('/restaurant/<int:restaurant_id>/comment/new/', methods=['GET', 'POST'])
 def newComment(restaurant_id):
-   restaurant = db.session.query(Restaurant).filter_by(id = restaurant_id).one()
+   user = getUser()
    if request.method == 'POST':
-      comment = Comment(title = request.form['title'], description = request.form['description'], name = request.form['name'], restaurantid = restaurant_id)
-      db.session.add(comment)
-      db.session.commit()
-      flash('New Comment %s Successfully Created' % (comment.title))
-      return redirect(url_for('main.showMenu', restaurant_id = restaurant_id))
+      if user != None and user.permission == 0:
+        comment = Comment(title = request.form['title'], description = request.form['description'], name = request.form['name'], restaurantid = restaurant_id)
+        db.session.add(comment)
+        db.session.commit()
+        flash('New Comment %s Successfully Created' % (comment.title))
+        return redirect(url_for('main.showMenu', restaurant_id = restaurant_id, user = user))
+      else:
+         flash('Failed to create comment')
+         return redirect(url_for('main.showMenu', restaurant_id = restaurant_id, user = user))
    else:
-      return render_template('newcomment.html', restaurant_id = restaurant_id)
+      return render_template('newcomment.html', restaurant_id = restaurant_id, user = user)
 
 #Create a new menu item
 @main.route('/restaurant/<int:restaurant_id>/menu/new/',methods=['GET','POST'])
