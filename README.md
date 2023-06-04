@@ -22,7 +22,7 @@ You should have at least the following versions installed:
 - Waitress           2.1.2
 - PyQRCode           1.2.1
 - pyotp	             2.8.0
-
+- requests           2.31.0
 
 You will also need sqlite installed for the database backend.
 

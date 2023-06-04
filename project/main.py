@@ -6,6 +6,7 @@ from datetime import datetime
 
 import pyotp
 import pyqrcode
+import werkzeug
 from flask import Blueprint, render_template, request, flash, redirect, url_for, session
 from sqlalchemy import asc
 from werkzeug import security
@@ -28,7 +29,7 @@ def create_session(email, password):
     user = db.session.query(User).filter_by(email=email).one_or_none()
 
     if user is None:
-        return None
+        return None, None
 
     # Check password
     if security.check_password_hash(user.password, password):
@@ -38,7 +39,7 @@ def create_session(email, password):
         # Check for token collision
         if db.session.query(UserToken).filter_by(token=new_token).one_or_none() is not None:
             logging.warning("Generated duplicate token.")
-            return None
+            return None, None
 
         # Check is 2fa is required
         # If yes, an "insecure" session is created, and user is redirected to next steps
@@ -54,7 +55,7 @@ def create_session(email, password):
 
         return user, token
 
-    return None
+    return None, None
 
 
 def get_session_token(token: str) -> UserToken:
@@ -128,14 +129,23 @@ def newRestaurant():
     user = getUser()
     if request.method == 'POST':
         if user.restaurant == None:
-            newRestaurant = Restaurant(name=request.form['name'])
+
+            # Type checking
+            name = str(request.form.get('name'))
+            if len(name) < 3:
+                flash('Name too short. Please try again')
+                return
+
+            newRestaurant = Restaurant(
+
+            )
             db.session.add(newRestaurant)
             db.session.commit()
             user.restaurant = newRestaurant.id
             if user.permission == 0:
                 user.permission = 1
             db.session.commit()  # commit twice because the first one generates a restaurant ID
-            flash('New Restaurant %s Successfully Created' % newRestaurant.name)
+            flash(f'New Restaurant {newRestaurant.name} Successfully Created')
         else:
             flash('User already belongs to a restaurant')
         return redirect(url_for('main.showRestaurants'))
@@ -197,13 +207,13 @@ def showMenu(restaurant_id):
 def newComment(restaurant_id):
     user = getUser()
     if request.method == 'POST':
-        if user != None and user.permission == 0:
+        if user is not None:
             comment = Comment(
                 title=request.form['title'],
                 description=request.form['description'],
                 restaurantid=restaurant_id,
                 userid=user.id,
-                username=False if 'name' in request.form else True
+                username=False if 'name' in request.form and user.restaurant is None else True
             )
             db.session.add(comment)
             db.session.commit()
@@ -223,12 +233,27 @@ def newMenuItem(restaurant_id):
     restaurant = db.session.query(Restaurant).filter_by(id=restaurant_id).one()
     if request.method == 'POST':
         if user != None and user.restaurant == restaurant_id:
-            print(request.form['name'])
-            if (request.form['name'].value == "anonymous"):
-                username = user.name
-            newItem = MenuItem(name=request.form['name'], description=request.form['description'],
-                               price=request.form['price'], course=request.form['course'], restaurant_id=restaurant_id,
-                               username=username)
+
+            # Ensure correct types
+            # float(None) throws TypeError.
+            # float("") throws ValueError
+            try:
+                name = str(request.form.get('name'))
+                description = str(request.form.get('description'))
+                price = float(request.form.get('price'))
+                course = str(request.form.get('course'))
+            except (TypeError, ValueError) as e:
+                logging.warning(f"Exception processing newMenuItem : {e}")
+                flash("Something went wrong. Please try again.")
+                return redirect(url_for('main.newMenuItem', restaurant_id=restaurant_id))
+
+            newItem = MenuItem(
+                name=name,
+                description=description,
+                price=price,
+                course=course,
+                restaurant_id=restaurant_id
+            )
             db.session.add(newItem)
             db.session.commit()
             flash('New Menu %s Item Successfully Created' % (newItem.name))
@@ -336,15 +361,31 @@ def login2FA():
 @main.route('/signup/', methods=['GET', 'POST'])
 def showSignup():
     if request.method == 'POST':
-        if request.form['password'] != request.form['password_verification']:
-            flash('Passwords do not match')
+
+        password = str(request.form.get('password'))
+        password_verify = str(request.form.get('password_verification'))
+
+        if password != password_verify:
+            flash('Passwords do not match. Please try again.')
             return redirect(url_for('main.showSignup'))
-        if db.session.query(User).filter_by(name=request.form['name']).one_or_none() or db.session.query(
-                User).filter_by(email=request.form['email']).one_or_none():
-            flash('Username or email address already registered')
+
+        name = str(request.form.get('name'))
+        email = str(request.form.get('email'))
+
+        if db.session.query(User).filter_by(name=name).one_or_none() \
+                or db.session.query(User).filter_by(email=email).one_or_none():
+            flash('Username or email address already registered. Please try again.')
             return redirect(url_for('main.showSignup'))
-        newUser = User(name=request.form['name'], email=request.form['email'],
-                       password=security.generate_password_hash(request.form['password'], method="scrypt"))
+
+        if name == 'None' or len(name) < 1 or email == 'None' or len(email) < 3:
+            flash('Invalid username or email. Please try again.')
+            return redirect(url_for('main.showSignup'))
+
+        newUser = User(name=name,
+                       email=email,
+                       password=security.generate_password_hash(password,method="scrypt"),
+                       permission=0
+                       )
         db.session.add(newUser)
         flash('Account created')
         db.session.commit()
