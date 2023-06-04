@@ -68,3 +68,12 @@ class SecurityTestCases(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertNotIn("<span onload=\"alert(1)\">", r.text)
 
+    def testUnauthorisedRestaurantCreation(self):
+        import requests
+        data = {
+            "name": "new test restaurant"
+        }
+        r = requests.post("http://127.0.0.1:5000/restaurant/new/", data=data)
+        self.assertEqual(r.status_code, 200)
+        self.assertNotIn("New Restaurant new test restaurant Created", r.text)
+

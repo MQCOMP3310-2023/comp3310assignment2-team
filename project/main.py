@@ -128,7 +128,7 @@ def showRestaurants():
 def newRestaurant():
     user = getUser()
     if request.method == 'POST':
-        if user.restaurant == None:
+        if user is not None and user.restaurant is None:
 
             # Type checking
             name = str(request.form.get('name'))
@@ -136,16 +136,16 @@ def newRestaurant():
                 flash('Name too short. Please try again')
                 return
 
-            newRestaurant = Restaurant(
-
+            new_restaurant = Restaurant(
+                name=name
             )
-            db.session.add(newRestaurant)
+            db.session.add(new_restaurant)
             db.session.commit()
-            user.restaurant = newRestaurant.id
+            user.restaurant = new_restaurant.id
             if user.permission == 0:
                 user.permission = 1
             db.session.commit()  # commit twice because the first one generates a restaurant ID
-            flash(f'New Restaurant {newRestaurant.name} Successfully Created')
+            flash(f'New Restaurant {new_restaurant.name} Successfully Created')
         else:
             flash('User already belongs to a restaurant')
         return redirect(url_for('main.showRestaurants'))
