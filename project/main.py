@@ -71,7 +71,7 @@ def upgrade_session(user: User, token: UserToken, code):
     return user, token
 
 
-def destroy_session(token):
+def destroy_session():
     token = session.get("token")
 
     if token is None:
@@ -276,7 +276,7 @@ def login2FA():
             destroy_session()
             return redirect(url_for('main.showLogin'))
 
-        user, token = upgrade_session(user, session.get('token'), code)
+        user, token = upgrade_session(user, get_session_token(session.get('token')), code)
 
         # Check if session upgrade was successful
         if not token.trusted:
